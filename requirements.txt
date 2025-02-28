@@ -1,0 +1,7 @@
+pyrogram
+tgcrypto
+pytgcalls
+youtube_dl
+aiohttp
+pydub
+ffmpeg
