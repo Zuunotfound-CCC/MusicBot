@@ -1,6 +1,7 @@
 pyrogram==2.0.106  
 tgcrypto==1.2.5  
-pytgcalls==2.1.0  
+pytgcalls==2.1.0
+tgcalls==2.0.0
 youtube_dl==2021.12.17  
 aiohttp==3.8.5  
 pydub==0.25.1  
