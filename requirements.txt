@@ -1,6 +1,7 @@
-pyrogram
-tgcrypto
-pytgcalls
-youtube_dl
-pydub
-ffmpeg
+pyrogram==2.0.106  
+tgcrypto==1.2.5  
+pytgcalls==1.2.0  
+yt-dlp==2024.02.04  
+aiohttp==3.9.1  
+pydub==0.25.1  
+ffmpeg-python==0.2.0
