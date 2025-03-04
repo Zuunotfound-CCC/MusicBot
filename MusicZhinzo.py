@@ -1,10 +1,11 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pytgcalls import PyTgCalls
+from pytgcalls.types import StreamAudioEnded
 from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls.types.stream import StreamStatus
-import youtube_dl
+import yt_dlp
 import json
+import os
 
 # Import konfigurasi dari config.py
 from config import API_ID, API_HASH, BOT_TOKEN, SESSION_STRING, OWNER_ID
@@ -21,14 +22,14 @@ call = PyTgCalls(app)
 # Dictionary untuk antrian lagu
 music_queue = {}
 
-# File penyimpanan data
+# File penyimpanan data pengguna dan grup
 DATA_FILE = "users_groups.json"
 
 # Load data dari file
-try:
+if os.path.exists(DATA_FILE):
     with open(DATA_FILE, "r") as f:
         data = json.load(f)
-except FileNotFoundError:
+else:
     data = {"users": [], "groups": []}
 
 def save_data():
@@ -48,7 +49,6 @@ async def is_member(user_id):
 @bot.on_message(filters.command(["start", "play", "pause", "resume", "stop", "queue", "help"]))
 async def check_join(client, message):
     user_id = message.from_user.id
-
     if not await is_member(user_id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{REQUIRED_CHANNEL[1:]}")],
@@ -64,15 +64,12 @@ async def start_command(client, message):
         [InlineKeyboardButton("➕ Tambahkan ke Grup", url="https://t.me/your_bot?startgroup=true")],
         [InlineKeyboardButton("❓ Bantuan dan Perintah", callback_data="help")]
     ])
-
     text = """\
 🎵 **Apple Music**  
 Saya **Apple Music**, bot pemutar musik Telegram.  
 
-📌 Platform yang didukung: **YouTube, Spotify, Resso, Apple Music, SoundCloud**.  
-💬 **Gunakan /play [judul lagu] untuk mulai memutar musik!**
+📌 **Gunakan /play [judul lagu] untuk mulai memutar musik!**
 """
-    
     await message.reply_photo(
         photo="https://your_image_link.com/apple_music.jpg",
         caption=text,
@@ -83,7 +80,7 @@ Saya **Apple Music**, bot pemutar musik Telegram.
 # Fungsi untuk mencari lagu di YouTube
 async def search_youtube(query):
     ydl_opts = {'format': 'bestaudio'}
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
         return {"title": info['title'], "url": info['url']}
 
@@ -107,36 +104,22 @@ async def play(_, message):
     await call.join_group_call(chat_id, AudioPiped(song['url']))
     await message.reply(f"🎶 **Memutar:** {song['title']}")
 
-# Fungsi untuk broadcast pesan ke semua pengguna dan grup
-@bot.on_message(filters.command("broadcast") & filters.user(OWNER_ID))
-async def broadcast_command(client, message):
-    if not message.reply_to_message:
-        return await message.reply("❌ Balas pesan yang ingin dikirim sebagai broadcast!")
-
-    broadcast_message = message.reply_to_message
-    success, failed = 0, 0
-
-    for user in data["users"]:
-        try:
-            await client.forward_messages(user, broadcast_message.chat.id, broadcast_message.message_id)
-            success += 1
-        except:
-            failed += 1
-
-    for group in data["groups"]:
-        try:
-            await client.forward_messages(group, broadcast_message.chat.id, broadcast_message.message_id)
-            success += 1
-        except:
-            failed += 1
-
-    await message.reply(f"✅ **Broadcast selesai!**\n📨 **Berhasil:** {success}\n❌ **Gagal:** {failed}")
+# Fungsi untuk menangani saat lagu selesai diputar
+@call.on_stream_end()
+async def on_stream_end(client, update: StreamAudioEnded):
+    chat_id = update.chat_id
+    if chat_id in music_queue and music_queue[chat_id]:
+        next_song = music_queue[chat_id].pop(0)
+        await call.join_group_call(chat_id, AudioPiped(next_song['url']))
+        await bot.send_message(chat_id, f"🎶 **Memutar lagu berikutnya:** {next_song['title']}")
+    else:
+        await call.leave_group_call(chat_id)
 
 # Fungsi untuk pause musik
 @bot.on_message(filters.command("pause"))
 async def pause(_, message):
     chat_id = message.chat.id
-    if call.active_calls.get(chat_id) and call.active_calls[chat_id].status == StreamStatus.PLAYING:
+    if call.active_calls.get(chat_id):
         await call.pause_stream(chat_id)
         await message.reply("⏸ **Musik dijeda.**")
 
@@ -144,7 +127,7 @@ async def pause(_, message):
 @bot.on_message(filters.command("resume"))
 async def resume(_, message):
     chat_id = message.chat.id
-    if call.active_calls.get(chat_id) and call.active_calls[chat_id].status == StreamStatus.PAUSED:
+    if call.active_calls.get(chat_id):
         await call.resume_stream(chat_id)
         await message.reply("▶️ **Melanjutkan musik.**")
 
@@ -178,18 +161,13 @@ async def help_command(client, message):
 - `/stop` → Menghentikan pemutaran musik
 - `/queue` → Melihat daftar antrian lagu
 
-**👥 Fitur Grup & Admin:**
-- `/start` → Memulai bot dan menampilkan informasi
-
 **🔍 Cek Informasi:**
 - Tekan tombol di bawah untuk mengecek ID Anda atau ID Grup.
 """
-
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔎 Cek ID Pengguna", callback_data="check_user_id"),
          InlineKeyboardButton("🔎 Cek ID Grup", callback_data="check_group_id")]
     ])
-
     await message.reply(text, reply_markup=keyboard, parse_mode="Markdown")
 
 # Fungsi untuk menangani tombol "Cek ID Pengguna"
