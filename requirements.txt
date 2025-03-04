@@ -2,7 +2,6 @@ git+https://github.com/pyrogram/pyrogram.git
 git+https://github.com/pyrogram/tgcrypto.git  
 git+https://github.com/pytgcalls/pytgcalls.git  
 git+https://github.com/pytgcalls/tgcalls.git  
-git+https://github.com/ytdl-org/youtube-dl.git  
-git+https://github.com/aio-libs/aiohttp.git  
+git+https://github.com/ytdl-org/youtube-dl.git
 git+https://github.com/jiaaro/pydub.git  
 git+https://github.com/kkroening/ffmpeg-python.git
